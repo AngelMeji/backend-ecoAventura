@@ -41,4 +41,29 @@ class AuthController extends Controller
             'token' => $token,
         ], 201);
     }
+
+    // LOGIN
+    public function login(Request $request)
+    {
+        $request->validate([
+            'email'    => 'required|email',
+            'password' => 'required|string',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'email' => [__('auth.failed')],
+            ]);
+        }
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Login exitoso',
+            'user' => $user,
+            'token' => $token,
+        ]);
+    }
 }
