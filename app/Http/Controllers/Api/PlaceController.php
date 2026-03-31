@@ -1,0 +1,388 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\Place;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
+
+class PlaceController extends Controller
+{
+    /**
+     * LISTAR LUGARES PÚBLICOS (approved)
+     * GET /api/places
+     */
+    public function index(Request $request)
+    {
+        $userId = auth('sanctum')->id();
+        $query = Place::with(['category', 'user', 'images'])
+            ->withAvg('reviews', 'rating')
+            ->withExists([
+                'favorites as is_favorite' => function ($q) use ($userId) {
+                    $q->where('user_id', $userId ?? 0);
+                }
+            ]);
+
+        // Si es Admin o el Dueño consultando sus propios lugares, no filtramos por 'approved'
+        $user = auth('sanctum')->user();
+        $isFilteringBySelf = $request->filled('user_id') && $user && (int) $request->user_id === (int) $user->id;
+
+        if (!$isFilteringBySelf && (!$user || !$user->isAdmin())) {
+            $query->where('status', 'approved');
+        }
+
+        // Filtrar por categoría (?category=cascadas)
+        if ($request->filled('category')) {
+            $query->whereHas('category', function ($q) use ($request) {
+                $q->where('slug', $request->category);
+            });
+        }
+
+        // Filtrar destacados (?featured=1)
+        if ($request->filled('featured')) {
+            $query->where('is_featured', $request->featured);
+        }
+
+        // Buscar por nombre (?search=cascada)
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        // Filipar por ID de Usuario (?user_id=5)
+        // Útil para el dashboard de socios
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+
+        return response()->json($query->latest()->paginate(10));
+    }
+
+    /**
+     * VER DETALLE DE UN LUGAR
+     * GET /api/places/{slug}
+     */
+    public function show($identifier)
+    {
+        $userId = auth('sanctum')->id();
+        \Illuminate\Support\Facades\Log::info('Public route show() - Sanctum User ID: ' . ($userId ?? 'NULL'));
+        $query = Place::with(['category', 'user', 'reviews.user', 'images'])
+            ->withAvg('reviews', 'rating')
+            ->withExists([
+                'favorites as is_favorite' => function ($q) use ($userId) {
+                    $q->where('user_id', $userId ?? 0);
+                }
+            ]);
+
+        // Si es ID
+        if (is_numeric($identifier)) {
+            $query->where('id', $identifier);
+        } else {
+            $query->where('slug', $identifier);
+        }
+
+        $place = $query->firstOrFail();
+
+        // Verificar visibilidad
+        // Si no es aprobado, SOLO admin o dueño pueden verlo
+        if ($place->status !== 'approved') {
+            $user = auth('sanctum')->user(); // Obtener usuario si hay token
+
+            if (!$user) {
+                abort(404, 'Lugar no encontrado');
+            }
+
+            if (!$user->isAdmin() && $user->id !== $place->user_id) {
+                abort(403, 'No tienes permiso para ver este lugar pendiente.');
+            }
+        }
+
+        return response()->json($place);
+    }
+
+    /**
+     * CREAR LUGAR (partner / admin)
+     * POST /api/places
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'category_id' => 'required|exists:categories,id',
+            'short_description' => 'required|string|max:1000',
+            'description' => 'required|string|min:50|max:5000', // Descripción completa requerida, mínimo 50 caracteres
+            'address' => 'required|string|max:255',
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+            'images' => 'required|array|min:1', // Al menos una imagen es obligatoria
+            'images.*' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // Max 5MB
+            'difficulty' => 'required|in:baja,media,alta,experto',
+            'duration' => 'required|string|max:255',
+            'best_season' => 'required|string|max:255',
+        ]);
+
+
+        $place = Place::create([
+            'user_id' => $request->user()->id,
+            'category_id' => $request->category_id,
+            'name' => $request->name,
+            'slug' => Str::slug($request->name) . '-' . uniqid(),
+            'short_description' => $request->short_description,
+            'description' => $request->description,
+            'address' => $request->address,
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
+            'status' => $request->user()->isAdmin()
+                ? 'approved'
+                : 'pending',
+            'difficulty' => $request->difficulty,
+            'duration' => $request->duration,
+            'best_season' => $request->best_season,
+        ]);
+
+        // Subir imágenes con optimización (WebP, max 1200px, 80% calidad)
+        if ($request->hasFile('images')) {
+            $primaryIndex = $request->input('primary_image_index', 0);
+            $manager = new ImageManager(new Driver());
+            foreach ($request->file('images') as $index => $image) {
+                $img = $manager->read($image->getRealPath());
+                $img->scaleDown(width: 1200);
+                $webpData = $img->toWebp(80)->toString();
+                $filename = 'places/' . Str::uuid() . '.webp';
+                Storage::disk('public')->put($filename, $webpData);
+                $place->images()->create([
+                    'image_path' => $filename,
+                    'is_primary' => (int) $index === (int) $primaryIndex
+                ]);
+            }
+        }
+
+        return response()->json([
+            'message' => 'Lugar creado correctamente',
+            'place' => $place->load('images')
+        ], 201);
+    }
+
+    /**
+     * ACTUALIZAR LUGAR (dueño o admin)
+     * PUT /api/places/{id}
+     */
+    public function update(Request $request, int $id)
+    {
+        $place = Place::findOrFail($id);
+
+        // Autorización manual
+        if (
+            !$request->user()->isAdmin() &&
+            (int) $place->user_id !== (int) $request->user()->id
+        ) {
+            return response()->json([
+                'message' => 'No autorizado para editar este lugar'
+            ], 403);
+        }
+
+        $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'category_id' => 'sometimes|required|exists:categories,id',
+            'short_description' => 'sometimes|required|string|max:1000',
+            'description' => 'sometimes|required|string|min:50|max:5000',
+            'address' => 'sometimes|required|string|max:255',
+            'latitude' => 'sometimes|required|numeric|between:-90,90',
+            'longitude' => 'sometimes|required|numeric|between:-180,180',
+            'is_featured' => 'sometimes|boolean',
+            'difficulty' => 'sometimes|required|in:baja,media,alta,experto',
+            'duration' => 'sometimes|required|string|max:255',
+            'best_season' => 'sometimes|required|string|max:255',
+            'status' => 'sometimes|in:pending,approved,rejected,needs_fix',
+            'images' => 'sometimes|array',
+            'images.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'delete_images' => 'sometimes|string', // JSON array of IDs
+            'primary_image_id' => 'sometimes|integer|exists:place_images,id',
+            'primary_image_index' => 'sometimes|integer',
+        ]);
+
+        /* Si cambia el nombre, cambia el slug */
+        if ($request->has('name')) {
+            $place->slug = Str::slug($request->name) . '-' . uniqid();
+        }
+
+        $data = $request->only([
+            'name',
+            'category_id',
+            'short_description',
+            'description',
+            'address',
+            'latitude',
+            'longitude',
+            'is_featured',
+            'difficulty',
+            'duration',
+            'best_season',
+        ]);
+
+        // Solo admin puede cambiar status directamente en update
+        if ($request->user()->isAdmin() && $request->has('status')) {
+            $data['status'] = $request->status;
+        } elseif (!$request->user()->isAdmin()) {
+            // Si es socio, al editar vuelve a pendiente para revisión
+            $data['status'] = 'pending';
+        }
+
+        $place->update($data);
+
+        // --- Gestión de Imágenes ---
+
+        // 1. Eliminar imágenes
+        if ($request->filled('delete_images')) {
+            $idsToDelete = json_decode($request->delete_images, true);
+            if (is_array($idsToDelete)) {
+                $imagesToDelete = $place->images()->whereIn('id', $idsToDelete)->get();
+                foreach ($imagesToDelete as $img) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($img->image_path);
+                    $img->delete();
+                }
+            }
+        }
+
+        // 2. Si se especifica una nueva primaria (antes de subir nuevas o después)
+        // Si viene primary_image_id, es una imagen que ya existe (o que acabamos de dejar)
+        if ($request->filled('primary_image_id')) {
+            $place->images()->update(['is_primary' => false]);
+            $place->images()->where('id', $request->primary_image_id)->update(['is_primary' => true]);
+        }
+
+        // 3. Subir nuevas imágenes con optimización (WebP, max 1200px, 80% calidad)
+        if ($request->hasFile('images')) {
+            $primaryIndex = $request->input('primary_image_index');
+
+            if ($primaryIndex !== null) {
+                $place->images()->update(['is_primary' => false]);
+            }
+
+            $manager = new ImageManager(new Driver());
+            foreach ($request->file('images') as $index => $image) {
+                $img = $manager->read($image->getRealPath());
+                $img->scaleDown(width: 1200);
+                $webpData = $img->toWebp(80)->toString();
+                $filename = 'places/' . Str::uuid() . '.webp';
+                Storage::disk('public')->put($filename, $webpData);
+                $place->images()->create([
+                    'image_path' => $filename,
+                    'is_primary' => ($primaryIndex !== null && (int) $index === (int) $primaryIndex)
+                ]);
+            }
+        }
+
+        return response()->json([
+            'message' => 'Lugar actualizado correctamente',
+            'place' => $place->load('images')
+        ]);
+    }
+
+    /**
+     * ELIMINAR LUGAR (solo admin)
+     * DELETE /api/places/{id}
+     */
+    public function destroy(Request $request, int $id)
+    {
+        if (!$request->user()->isAdmin()) {
+            return response()->json([
+                'message' => 'Solo el administrador puede eliminar lugares'
+            ], 403);
+        }
+
+        $place = Place::findOrFail($id);
+        $place->delete();
+
+        return response()->json([
+            'message' => 'Lugar eliminado correctamente'
+        ]);
+    }
+
+    /**
+     * LISTAR LUGARES PENDIENTES (admin)
+     * GET /api/admin/places/pending
+     */
+    public function pending()
+    {
+        $places = Place::with(['category', 'user'])
+            ->where('status', 'pending')
+            ->latest()
+            ->paginate(10);
+
+        return response()->json($places);
+    }
+
+    /**
+     * APROBAR LUGAR (admin)
+     */
+    public function approve(Request $request, int $id)
+    {
+        if (!$request->user()->isAdmin()) {
+            return response()->json(['message' => 'No autorizado'], 403);
+        }
+
+        $place = Place::findOrFail($id);
+        $place->update(['status' => 'approved']);
+
+        return response()->json([
+            'message' => 'Lugar aprobado'
+        ]);
+    }
+
+    /**
+     * RECHAZAR LUGAR (admin)
+     */
+    public function reject(Request $request, int $id)
+    {
+        if (!$request->user()->isAdmin()) {
+            return response()->json(['message' => 'No autorizado'], 403);
+        }
+
+        $place = Place::findOrFail($id);
+        $place->update(['status' => 'rejected']);
+
+        return response()->json([
+            'message' => 'Lugar rechazado'
+        ]);
+    }
+
+    /**
+     * PEDIR CORRECCIÓN (admin)
+     */
+    public function needsFix(Request $request, int $id)
+    {
+        if (!$request->user()->isAdmin()) {
+            return response()->json(['message' => 'No autorizado'], 403);
+        }
+
+        $place = Place::findOrFail($id);
+        $place->update(['status' => 'needs_fix']);
+
+        return response()->json([
+            'message' => 'Lugar marcado para corrección'
+        ]);
+    }
+
+    /**
+     * MARCAR COMO PENDIENTE (admin)
+     */
+    public function setPending(Request $request, int $id)
+    {
+        $place = Place::findOrFail($id);
+
+        // Permitir si es Admin O si es el dueño del lugar
+        if (!$request->user()->isAdmin() && (int) $request->user()->id !== (int) $place->user_id) {
+            return response()->json(['message' => 'No autorizado'], 403);
+        }
+
+        $place->update(['status' => 'pending']);
+
+        return response()->json([
+            'message' => 'Lugar marcado como pendiente'
+        ]);
+    }
+}
