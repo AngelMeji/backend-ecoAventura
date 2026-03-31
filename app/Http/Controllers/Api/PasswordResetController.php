@@ -5,17 +5,17 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules;
 
 class PasswordResetController extends Controller
 {
     /**
-     * Enviar enlace de restablecimiento de contraseña.
+     * Send a password reset link to the given email.
      * POST /api/password/email
      */
     public function sendResetLink(Request $request): JsonResponse
@@ -23,6 +23,13 @@ class PasswordResetController extends Controller
         $request->validate([
             'email' => ['required', 'email'],
         ]);
+
+        // Override the reset URL so it points to the frontend SPA
+        // instead of Laravel's named route (password.reset)
+        ResetPassword::createUrlUsing(function (User $user, string $token) {
+            $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+            return "{$frontendUrl}/reset-password?token={$token}&email=" . urlencode($user->email);
+        });
 
         $status = Password::sendResetLink(
             $request->only('email')
@@ -43,7 +50,7 @@ class PasswordResetController extends Controller
     }
 
     /**
-     * Restablecer la contraseña con el token.
+     * Reset the password using the given token.
      * POST /api/password/reset
      */
     public function reset(Request $request): JsonResponse
@@ -51,14 +58,7 @@ class PasswordResetController extends Controller
         $request->validate([
             'token'    => ['required'],
             'email'    => ['required', 'email'],
-            'password' => [
-                'required',
-                'string',
-                'min:8',
-                'max:12',
-                'confirmed',
-                \Illuminate\Validation\Rules\Password::min(8)->mixedCase()->numbers()->symbols()
-            ],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
         $status = Password::reset(
