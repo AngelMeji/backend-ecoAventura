@@ -58,7 +58,8 @@ class PlaceController extends Controller
             $query->where('user_id', $request->user_id);
         }
 
-        return response()->json($query->latest()->paginate(10));
+        $perPage = $request->input('per_page', 10);
+        return response()->json($query->latest()->paginate($perPage));
     }
 
     /**
