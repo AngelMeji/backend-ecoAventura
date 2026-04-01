@@ -37,5 +37,5 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/places', [PlaceController::class, 'store']);
     Route::put('/places/{id}', [PlaceController::class, 'update']);
     Route::delete('/places/{id}', [PlaceController::class, 'destroy']);
-    Route::put('/places/{id}/pending', [PlaceController::class, 'setPending']);
+    Route::patch('/places/{id}/set-pending', [PlaceController::class, 'setPending']);
 });
