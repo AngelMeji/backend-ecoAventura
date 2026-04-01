@@ -32,4 +32,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
+
+    /* ---------- ADMIN/PARTNER PLACES (HU011) ---------- */
+    Route::post('/places', [PlaceController::class, 'store']);
+    Route::put('/places/{id}', [PlaceController::class, 'update']);
+    Route::delete('/places/{id}', [PlaceController::class, 'destroy']);
+    Route::put('/places/{id}/pending', [PlaceController::class, 'setPending']);
 });
