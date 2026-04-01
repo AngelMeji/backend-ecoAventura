@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PlaceController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\PasswordResetController;
+use App\Http\Controllers\Api\ChatbotController;
 
 /* ---------- AUTH (Public) ---------- */
 Route::post('/register', [AuthController::class, 'register']);
@@ -21,6 +22,7 @@ Route::get('/categories', [CategoryController::class, 'index']);
 /* ---------- PLACES (Public) ---------- */
 Route::get('/places', [PlaceController::class, 'index']);
 Route::get('/places/{id}', [PlaceController::class, 'show']);
+Route::post('/places/{id}/chat', [ChatbotController::class, 'chat']);
 
 /* ---------- PROTECTED ROUTES ---------- */
 Route::middleware(['auth:sanctum'])->group(function () {
