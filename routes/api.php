@@ -7,6 +7,9 @@ use App\Http\Controllers\Api\PlaceController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ChatbotController;
+use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\PartnerController;
+use App\Http\Controllers\Api\PartnerRequestController;
 
 /* ---------- AUTH (Public) ---------- */
 Route::post('/register', [AuthController::class, 'register']);
@@ -38,6 +41,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/places/{id}', [PlaceController::class, 'update']);
     Route::delete('/places/{id}', [PlaceController::class, 'destroy']);
     Route::patch('/places/{id}/set-pending', [PlaceController::class, 'setPending']);
+    Route::patch('/places/{id}/approve', [PlaceController::class, 'approve']);
+    Route::patch('/places/{id}/reject', [PlaceController::class, 'reject']);
+    Route::patch('/places/{id}/needs-fix', [PlaceController::class, 'needsFix']);
 
     // PARTNER REQUEST
     Route::post('/partner-requests', [\App\Http\Controllers\Api\PartnerRequestController::class, 'store']);
@@ -47,6 +53,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // ADMIN DASHBOARD & MANAGEMENT (Solo Admin)
     Route::middleware(['role:admin'])->group(function () {
         Route::get('/admin/dashboard', [\App\Http\Controllers\Api\AdminController::class, 'stats']);
+
+        // Admin: Gestión de lugares
+        Route::get('/admin/places/pending', [\App\Http\Controllers\Api\AdminController::class, 'pendingPlaces']);
+        Route::get('/admin/places', [\App\Http\Controllers\Api\AdminController::class, 'allPlaces']);
 
         // ADMIN USER MANAGEMENT
         Route::get('/admin/users', [\App\Http\Controllers\Api\AdminController::class, 'indexUsers']);
@@ -58,5 +68,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/admin/partner-requests', [\App\Http\Controllers\Api\PartnerRequestController::class, 'index']);
         Route::patch('/admin/partner-requests/{id}/approve', [\App\Http\Controllers\Api\PartnerRequestController::class, 'approve']);
         Route::patch('/admin/partner-requests/{id}/reject', [\App\Http\Controllers\Api\PartnerRequestController::class, 'reject']);
+    });
+
+    // PARTNER DASHBOARD (Solo Partner)
+    Route::middleware(['role:partner'])->group(function () {
+        Route::get('/partner/dashboard', [PartnerController::class, 'dashboard']);
     });
 });

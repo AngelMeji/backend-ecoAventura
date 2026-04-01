@@ -7,8 +7,6 @@ use Illuminate\Http\Request;
 use App\Models\Place;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\ImageManager;
-use Intervention\Image\Drivers\Gd\Driver;
 
 class PlaceController extends Controller
 {
@@ -143,16 +141,16 @@ class PlaceController extends Controller
             'best_season' => $request->best_season,
         ]);
 
-        // Subir imágenes con optimización (WebP, max 1200px, 80% calidad)
+        // Subir imágenes (Ya vienen optimizadas como WebP desde el Frontend)
         if ($request->hasFile('images')) {
             $primaryIndex = $request->input('primary_image_index', 0);
-            $manager = new ImageManager(new Driver());
             foreach ($request->file('images') as $index => $image) {
-                $img = $manager->read($image->getRealPath());
-                $img->scaleDown(width: 1200);
-                $webpData = $img->toWebp(80)->toString();
+                // Generar nombre único para la imagen
                 $filename = 'places/' . Str::uuid() . '.webp';
-                Storage::disk('public')->put($filename, $webpData);
+                
+                // Guardar directamente (Frontend V3 ya usa Canvas para compresión a Webp)
+                Storage::disk('public')->putFileAs('', $image, $filename);
+                
                 $place->images()->create([
                     'image_path' => $filename,
                     'is_primary' => (int) $index === (int) $primaryIndex
@@ -254,7 +252,7 @@ class PlaceController extends Controller
             $place->images()->where('id', $request->primary_image_id)->update(['is_primary' => true]);
         }
 
-        // 3. Subir nuevas imágenes con optimización (WebP, max 1200px, 80% calidad)
+        // 3. Subir nuevas imágenes (Ya vienen optimizadas como WebP desde el Frontend)
         if ($request->hasFile('images')) {
             $primaryIndex = $request->input('primary_image_index');
 
@@ -262,13 +260,10 @@ class PlaceController extends Controller
                 $place->images()->update(['is_primary' => false]);
             }
 
-            $manager = new ImageManager(new Driver());
             foreach ($request->file('images') as $index => $image) {
-                $img = $manager->read($image->getRealPath());
-                $img->scaleDown(width: 1200);
-                $webpData = $img->toWebp(80)->toString();
                 $filename = 'places/' . Str::uuid() . '.webp';
-                Storage::disk('public')->put($filename, $webpData);
+                Storage::disk('public')->putFileAs('', $image, $filename);
+
                 $place->images()->create([
                     'image_path' => $filename,
                     'is_primary' => ($primaryIndex !== null && (int) $index === (int) $primaryIndex)

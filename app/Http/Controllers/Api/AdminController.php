@@ -75,6 +75,25 @@ class AdminController extends Controller
         return response()->json(['stats' => $stats]);
     }
 
+    // TABLA: TODOS LOS LUGARES (Para Admin)
+    public function allPlaces()
+    {
+        // Retorna TODO con relaciones necesarias + Pagina
+        return Place::with(['user', 'category', 'images'])
+            ->withAvg('reviews', 'rating')
+            ->latest()
+            ->paginate(15);
+    }
+
+    // TABLA: PENDIENTES
+    public function pendingPlaces()
+    {
+        return Place::where('status', 'pending')
+            ->with(['user', 'category', 'images'])
+            ->withAvg('reviews', 'rating')
+            ->paginate(15);
+    }
+
     /* =================================
        GESTIÓN DE USUARIOS (CRUD)
        ================================= */
