@@ -30,4 +30,25 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
+
+    // PARTNER REQUEST
+    Route::post('/partner-requests', [\App\Http\Controllers\Api\PartnerRequestController::class, 'store']);
+    Route::get('/notifications', [\App\Http\Controllers\Api\PartnerRequestController::class, 'getNotifications']);
+    Route::patch('/notifications/{id}/read', [\App\Http\Controllers\Api\PartnerRequestController::class, 'markAsRead']);
+
+    // ADMIN DASHBOARD & MANAGEMENT (Solo Admin)
+    Route::middleware(['role:admin'])->group(function () {
+        Route::get('/admin/dashboard', [\App\Http\Controllers\Api\AdminController::class, 'stats']);
+
+        // ADMIN USER MANAGEMENT
+        Route::get('/admin/users', [\App\Http\Controllers\Api\AdminController::class, 'indexUsers']);
+        Route::post('/admin/users', [\App\Http\Controllers\Api\AdminController::class, 'createUser']);
+        Route::put('/admin/users/{id}', [\App\Http\Controllers\Api\AdminController::class, 'updateUser']);
+        Route::delete('/admin/users/{id}', [\App\Http\Controllers\Api\AdminController::class, 'destroyUser']);
+
+        // PARTNER REQUESTS MANAGEMENT
+        Route::get('/admin/partner-requests', [\App\Http\Controllers\Api\PartnerRequestController::class, 'index']);
+        Route::patch('/admin/partner-requests/{id}/approve', [\App\Http\Controllers\Api\PartnerRequestController::class, 'approve']);
+        Route::patch('/admin/partner-requests/{id}/reject', [\App\Http\Controllers\Api\PartnerRequestController::class, 'reject']);
+    });
 });
