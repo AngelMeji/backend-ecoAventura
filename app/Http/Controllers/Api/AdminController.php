@@ -80,10 +80,7 @@ class AdminController extends Controller
     public function allPlaces()
     {
         // Retorna TODO con relaciones necesarias + Pagina
-<<<<<<< HEAD
-=======
         // Incluimos withAvg para evitar N+1 del atributo average_rating
->>>>>>> feature/interactive-map-hhu005
         return Place::with(['user', 'category', 'images'])
             ->withAvg('reviews', 'rating')
             ->latest()
