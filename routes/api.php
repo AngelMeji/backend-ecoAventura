@@ -29,6 +29,7 @@ Route::post('/places/{id}/chat', [ChatbotController::class, 'chat']);
 
 /* ---------- PROTECTED ROUTES ---------- */
 Route::middleware(['auth:sanctum'])->group(function () {
+
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
@@ -37,6 +38,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     });
 
     // ---------- ADMIN/PARTNER PLACES (HU011) ---------- 
+
     Route::post('/places', [PlaceController::class, 'store']);
     Route::put('/places/{id}', [PlaceController::class, 'update']);
     Route::delete('/places/{id}', [PlaceController::class, 'destroy']);
@@ -68,6 +70,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/admin/partner-requests', [\App\Http\Controllers\Api\PartnerRequestController::class, 'index']);
         Route::patch('/admin/partner-requests/{id}/approve', [\App\Http\Controllers\Api\PartnerRequestController::class, 'approve']);
         Route::patch('/admin/partner-requests/{id}/reject', [\App\Http\Controllers\Api\PartnerRequestController::class, 'reject']);
+
+        // ADMIN REVIEW MODERATION
+        Route::get('/admin/reviews', [\App\Http\Controllers\Api\AdminController::class, 'indexReviews']);
+        Route::patch('/admin/reviews/{id}/toggle-hide', [\App\Http\Controllers\Api\AdminController::class, 'toggleHideReview']);
     });
 
     // PARTNER DASHBOARD (Solo Partner)

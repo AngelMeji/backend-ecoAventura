@@ -15,6 +15,7 @@ class AdminController extends Controller
      * Dashboard del Administrador
      * Muestra estadísticas globales del sistema.
      */
+    // ESTADÍSTICAS REALES
     public function stats()
     {
         // CACHE de 60 segundos para evitar carga excesiva en dashboard
@@ -79,6 +80,10 @@ class AdminController extends Controller
     public function allPlaces()
     {
         // Retorna TODO con relaciones necesarias + Pagina
+<<<<<<< HEAD
+=======
+        // Incluimos withAvg para evitar N+1 del atributo average_rating
+>>>>>>> feature/interactive-map-hhu005
         return Place::with(['user', 'category', 'images'])
             ->withAvg('reviews', 'rating')
             ->latest()
@@ -170,6 +175,46 @@ class AdminController extends Controller
 
         return response()->json([
             'message' => 'Usuario eliminado correctamente'
+        ]);
+    }
+    /* =================================
+       GESTIÓN DE RESEÑAS (Moderación)
+       ================================= */
+
+    /**
+     * Listar todas las reseñas (para moderación)
+     */
+    public function indexReviews()
+    {
+        $reviews = Review::with(['user:id,name,email', 'place:id,name,slug'])
+            ->latest()
+            ->paginate(15);
+
+        // Transform the paginated collection items to include raw_comment
+        $reviews->getCollection()->transform(function ($review) {
+            $review->raw_comment = $review->getRawOriginal('comment');
+            return $review;
+        });
+
+        return response()->json($reviews);
+    }
+
+    /**
+     * Ocultar/Mostrar el comentario de una reseña (toggle)
+     * Mantiene la calificación (rating) visible.
+     */
+    public function toggleHideReview($id)
+    {
+        $review = Review::findOrFail($id);
+
+        $review->is_hidden = !$review->is_hidden;
+        $review->save();
+
+        return response()->json([
+            'message' => $review->is_hidden
+                ? 'Comentario ocultado correctamente'
+                : 'Comentario restaurado correctamente',
+            'review' => array_merge($review->toArray(), ['raw_comment' => $review->getRawOriginal('comment')])
         ]);
     }
 }
