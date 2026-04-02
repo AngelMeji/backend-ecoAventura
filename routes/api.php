@@ -42,6 +42,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/favorites', [\App\Http\Controllers\Api\FavoriteController::class, 'store']);
     Route::delete('/favorites/{placeId}', [\App\Http\Controllers\Api\FavoriteController::class, 'destroy']);
 
+    // ---------- USER DASHBOARD (HU006) ----------
+    Route::get('/user/dashboard', [\App\Http\Controllers\Api\UserController::class, 'dashboard']);
+
     // ---------- REVIEWS (HU007) ----------
     Route::get('/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'index']);
     Route::post('/places/{placeId}/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'store']);
