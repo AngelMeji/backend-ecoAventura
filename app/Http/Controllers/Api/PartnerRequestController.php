@@ -129,10 +129,12 @@ class PartnerRequestController extends Controller
         $cacheKey = "notifications_count_{$user->id}";
 
         $data = Cache::remember($cacheKey, 10, function() use ($user) {
+            $genericNotifications = $user->unreadNotifications;
+
             if ($user->role === 'admin') {
                 // Admin sees count of pending requests
                 $count = PartnerRequest::where('status', 'pending')->count();
-                return ['type' => 'admin', 'count' => $count];
+                return ['type' => 'admin', 'count' => $count, 'generic_notifications' => $genericNotifications];
             } else {
                 // Users see their requests that have been processed but not read
                 $notifications = PartnerRequest::where('user_id', $user->id)
@@ -140,8 +142,6 @@ class PartnerRequestController extends Controller
                     ->where('user_read', false)
                     ->orderBy('updated_at', 'desc')
                     ->get();
-
-                $genericNotifications = $user->unreadNotifications;
 
                 return [
                     'type' => 'user', 
