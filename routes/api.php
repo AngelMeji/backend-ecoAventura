@@ -37,6 +37,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         return $request->user();
     });
 
+    // ---------- FAVORITES (HU006) ----------
+    Route::get('/favorites', [\App\Http\Controllers\Api\FavoriteController::class, 'index']);
+    Route::post('/favorites', [\App\Http\Controllers\Api\FavoriteController::class, 'store']);
+    Route::delete('/favorites/{placeId}', [\App\Http\Controllers\Api\FavoriteController::class, 'destroy']);
+
     // ---------- REVIEWS (HU007) ----------
     Route::get('/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'index']);
     Route::post('/places/{placeId}/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'store']);
