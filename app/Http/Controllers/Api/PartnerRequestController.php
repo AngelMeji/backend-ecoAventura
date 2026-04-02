@@ -129,10 +129,12 @@ class PartnerRequestController extends Controller
         $cacheKey = "notifications_count_{$user->id}";
 
         $data = Cache::remember($cacheKey, 10, function() use ($user) {
+            $genericNotifications = $user->unreadNotifications;
+
             if ($user->role === 'admin') {
                 // Admin sees count of pending requests
                 $count = PartnerRequest::where('status', 'pending')->count();
-                return ['type' => 'admin', 'count' => $count];
+                return ['type' => 'admin', 'count' => $count, 'generic_notifications' => $genericNotifications];
             } else {
                 // Users see their requests that have been processed but not read
                 $notifications = PartnerRequest::where('user_id', $user->id)
@@ -141,7 +143,11 @@ class PartnerRequestController extends Controller
                     ->orderBy('updated_at', 'desc')
                     ->get();
 
-                return ['type' => 'user', 'notifications' => $notifications];
+                return [
+                    'type' => 'user', 
+                    'notifications' => $notifications,
+                    'generic_notifications' => $genericNotifications
+                ];
             }
         });
 
@@ -150,6 +156,16 @@ class PartnerRequestController extends Controller
 
     public function markAsRead($id)
     {
+        // Handling generic database notifications (UUID)
+        if (!is_numeric($id)) {
+            $notification = auth()->user()->notifications()->find($id);
+            if ($notification) {
+                $notification->markAsRead();
+                return response()->json(['message' => 'Marked as read']);
+            }
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
         $request = PartnerRequest::findOrFail($id);
 
         if ($request->user_id !== auth()->id()) {

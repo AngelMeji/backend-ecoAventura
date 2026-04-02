@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Models\Place;
 use App\Models\Review;
 use Illuminate\Support\Facades\Cache;
+use App\Notifications\ReviewSuspendedNotification;
+use App\Notifications\ReviewRestoredNotification;
 
 class AdminController extends Controller
 {
@@ -200,12 +202,18 @@ class AdminController extends Controller
      * Ocultar/Mostrar el comentario de una reseña (toggle)
      * Mantiene la calificación (rating) visible.
      */
-    public function toggleHideReview($id)
+    public function toggleHideReview(Request $request, $id)
     {
         $review = Review::findOrFail($id);
 
         $review->is_hidden = !$review->is_hidden;
         $review->save();
+
+        if ($review->is_hidden && $request->filled('reason')) {
+            $review->user->notify(new ReviewSuspendedNotification($review, $request->reason));
+        } elseif (!$review->is_hidden) {
+            $review->user->notify(new ReviewRestoredNotification($review));
+        }
 
         return response()->json([
             'message' => $review->is_hidden
