@@ -30,4 +30,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
+
+    // FAVORITES
+    Route::get('/favorites', [\App\Http\Controllers\Api\FavoriteController::class, 'index']);
+    Route::post('/favorites', [\App\Http\Controllers\Api\FavoriteController::class, 'store']);
+    Route::delete('/favorites/{placeId}', [\App\Http\Controllers\Api\FavoriteController::class, 'destroy']);
 });

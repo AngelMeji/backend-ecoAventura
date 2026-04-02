@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
@@ -54,6 +55,28 @@ class User extends Authenticatable
             'password' => 'hashed',
             'notifications' => 'boolean',
         ];
+    }
+
+    /* =======================
+       Relaciones Eloquent
+       ======================= */
+
+    // Lugares creados (socio / admin)
+    public function places(): HasMany
+    {
+        return $this->hasMany(Place::class);
+    }
+
+    // Favoritos del usuario
+    public function favorites(): HasMany
+    {
+        return $this->hasMany(Favorite::class);
+    }
+
+    // Reseñas escritas
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
     }
 
     /* =======================
