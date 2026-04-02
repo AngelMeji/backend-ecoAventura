@@ -37,6 +37,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
         return $request->user();
     });
 
+    // ---------- REVIEWS (HU007) ----------
+    Route::get('/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'index']);
+    Route::post('/places/{placeId}/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'store']);
+    Route::put('/reviews/{id}', [\App\Http\Controllers\Api\ReviewController::class, 'update']);
+    Route::delete('/reviews/{id}', [\App\Http\Controllers\Api\ReviewController::class, 'destroy']);
+
     // ---------- ADMIN/PARTNER PLACES (HU011) ---------- 
 
     Route::post('/places', [PlaceController::class, 'store']);
