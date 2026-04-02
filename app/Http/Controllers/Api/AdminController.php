@@ -9,6 +9,7 @@ use App\Models\Place;
 use App\Models\Review;
 use Illuminate\Support\Facades\Cache;
 use App\Notifications\ReviewSuspendedNotification;
+use App\Notifications\ReviewRestoredNotification;
 
 class AdminController extends Controller
 {
@@ -210,6 +211,8 @@ class AdminController extends Controller
 
         if ($review->is_hidden && $request->filled('reason')) {
             $review->user->notify(new ReviewSuspendedNotification($review, $request->reason));
+        } elseif (!$review->is_hidden) {
+            $review->user->notify(new ReviewRestoredNotification($review));
         }
 
         return response()->json([
