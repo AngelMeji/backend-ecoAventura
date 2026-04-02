@@ -141,7 +141,13 @@ class PartnerRequestController extends Controller
                     ->orderBy('updated_at', 'desc')
                     ->get();
 
-                return ['type' => 'user', 'notifications' => $notifications];
+                $genericNotifications = $user->unreadNotifications;
+
+                return [
+                    'type' => 'user', 
+                    'notifications' => $notifications,
+                    'generic_notifications' => $genericNotifications
+                ];
             }
         });
 
@@ -150,6 +156,16 @@ class PartnerRequestController extends Controller
 
     public function markAsRead($id)
     {
+        // Handling generic database notifications (UUID)
+        if (!is_numeric($id)) {
+            $notification = auth()->user()->notifications()->find($id);
+            if ($notification) {
+                $notification->markAsRead();
+                return response()->json(['message' => 'Marked as read']);
+            }
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
         $request = PartnerRequest::findOrFail($id);
 
         if ($request->user_id !== auth()->id()) {

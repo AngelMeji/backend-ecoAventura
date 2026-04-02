@@ -1,0 +1,26 @@
+﻿
+   INFO  Running migrations.  
+
+  2026_04_01_163352_create_partner_requests_table  20.20ms FAIL
+
+   Illuminate\Database\QueryException 
+
+  SQLSTATE[42S01]: Base table or view already exists: 1050 Table 'partner_requests' already exists (Connection: mysql, Host: 127.0.0.1, Port: 3306, Database: ecoaventura, SQL: create table `partner_requests` (`id` bigint unsigned not null auto_increment primary key, `user_id` bigint unsigned not null, `place_name` varchar(191) not null, `place_address` varchar(191) not null, `status` enum('pending', 'approved', 'rejected') not null default 'pending', `user_read` tinyint(1) not null default '0', `created_at` timestamp null, `updated_at` timestamp null) default character set utf8mb4 collate 'utf8mb4_unicode_ci')
+
+  at vendor\laravel\framework\src\Illuminate\Database\Connection.php:841
+    837Ôûò             $exceptionType = ($isUniqueConstraintError = $this->isUniqueConstraintError($e))
+    838Ôûò                 ? UniqueConstraintViolationException::class
+    839Ôûò                 : QueryException::class;
+    840Ôûò 
+  Ô×£ 841Ôûò             $exception = new $exceptionType(
+    842Ôûò                 $this->getNameWithReadWriteType(),
+    843Ôûò                 $query,
+    844Ôûò                 $this->prepareBindings($bindings),
+    845Ôûò                 $e,
+
+  1   vendor\laravel\framework\src\Illuminate\Database\Connection.php:587
+      PDOException::("SQLSTATE[42S01]: Base table or view already exists: 1050 Table 'partner_requests' already exists")
+
+  2   vendor\laravel\framework\src\Illuminate\Database\Connection.php:587
+      PDOStatement::execute()
+
