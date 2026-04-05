@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Place;
 use App\Models\Review;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use App\Notifications\ReviewSuspendedNotification;
 use App\Notifications\ReviewRestoredNotification;
 
@@ -76,6 +77,85 @@ class AdminController extends Controller
         });
 
         return response()->json(['stats' => $stats]);
+    }
+
+    /**
+     * Analytics: Time-series data for charts (HU012)
+     */
+    public function analytics(Request $request)
+    {
+        $months = (int) $request->get('months', 12);
+        if (!in_array($months, [3, 6, 12])) {
+            $months = 12;
+        }
+
+        $cacheKey = "admin_analytics_{$months}";
+
+        $data = Cache::remember($cacheKey, 300, function () use ($months) {
+            $startDate = now()->subMonths($months)->startOfMonth();
+
+            // Monthly user registrations
+            $usersByMonth = DB::table('users')
+                ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as total")
+                ->where('created_at', '>=', $startDate)
+                ->groupBy('month')
+                ->orderBy('month')
+                ->get()
+                ->keyBy('month');
+
+            // Monthly reviews
+            $reviewsByMonth = DB::table('reviews')
+                ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as total")
+                ->where('created_at', '>=', $startDate)
+                ->groupBy('month')
+                ->orderBy('month')
+                ->get()
+                ->keyBy('month');
+
+            // Monthly approved places
+            $placesByMonth = DB::table('places')
+                ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as total")
+                ->where('created_at', '>=', $startDate)
+                ->where('status', 'approved')
+                ->groupBy('month')
+                ->orderBy('month')
+                ->get()
+                ->keyBy('month');
+
+            // Category distribution
+            $categoryDistribution = DB::table('places')
+                ->join('categories', 'places.category_id', '=', 'categories.id')
+                ->select('categories.name', DB::raw('count(*) as total'))
+                ->where('places.status', 'approved')
+                ->groupBy('categories.name')
+                ->orderByDesc('total')
+                ->get();
+
+            // Build complete month labels
+            $labels = [];
+            $usersData = [];
+            $reviewsData = [];
+            $placesData = [];
+
+            for ($i = $months - 1; $i >= 0; $i--) {
+                $monthKey = now()->subMonths($i)->format('Y-m');
+                $monthLabel = now()->subMonths($i)->format('M Y');
+                $labels[] = $monthLabel;
+                $usersData[] = $usersByMonth->get($monthKey)->total ?? 0;
+                $reviewsData[] = $reviewsByMonth->get($monthKey)->total ?? 0;
+                $placesData[] = $placesByMonth->get($monthKey)->total ?? 0;
+            }
+
+            return [
+                'labels'                 => $labels,
+                'users_per_month'        => $usersData,
+                'reviews_per_month'      => $reviewsData,
+                'places_per_month'       => $placesData,
+                'category_distribution'  => $categoryDistribution,
+            ];
+        });
+
+        return response()->json(['analytics' => $data]);
     }
 
     // TABLA: TODOS LOS LUGARES (Para Admin)

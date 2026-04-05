@@ -69,6 +69,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // ADMIN DASHBOARD & MANAGEMENT (Solo Admin)
     Route::middleware(['role:admin'])->group(function () {
         Route::get('/admin/dashboard', [\App\Http\Controllers\Api\AdminController::class, 'stats']);
+        Route::get('/admin/analytics', [\App\Http\Controllers\Api\AdminController::class, 'analytics']);
 
         // Admin: Gestión de lugares
         Route::get('/admin/places/pending', [\App\Http\Controllers\Api\AdminController::class, 'pendingPlaces']);
