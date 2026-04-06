@@ -11,15 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('partner_requests', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->string('place_name');
-            $table->string('place_address');
-            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
-            $table->boolean('user_read')->default(false);
-            $table->timestamps();
-        });
+        // No-op: this migration duplicated table creation in this codebase.
+        // The table is created by 2026_02_12_144117 and user_read is added later.
     }
 
     /**
@@ -27,6 +20,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('partner_requests');
+        // No-op.
     }
 };
